@@ -44,10 +44,3 @@ def generate_dense_ot_data(n):
     from scipy.spatial.distance import cdist
     C = cdist(source_pts, target_pts, metric='euclidean')
     return C
-
-if __name__ == "__main__":
-    N = 5
-    graph, cost_matrix = generate_bipartite_ot_data(N)
-
-    print("--- Bipartite Graph Metadata ---")
-    print(f"Nodes: {graph.number_of_nodes()}, Edges: {graph.number_of_edges()}")
