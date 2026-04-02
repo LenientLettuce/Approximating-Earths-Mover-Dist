@@ -13,7 +13,10 @@ The Earth Mover's Distance is a critical metric in computer vision, NLP, and gen
 ## 🛠 Algorithms Implemented
 
 ### 1. Traditional Exact Methods (The Ground Truth)
-* **Hungarian Method / Min-Cost Flow:** Used as our exact baseline to verify precision.
+* **Exact EMD:** The usual approach to calculating EMD.
+* **Implementation:** Utilizes the `Python Optimal Transport (POT)` library.
+
+* **Hungarian Method / Min-Cost Flow:** Used to solve for a sub-case of EMD where weights are equal.
 * **Implementation:** Leverages `scipy.optimize.linear_sum_assignment` for exact optimal matching.
 
 ### 2. Modern Optimized Methods (The Industry Standard)
