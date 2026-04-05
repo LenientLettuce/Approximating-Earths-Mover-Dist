@@ -5,19 +5,19 @@ import time
 import matplotlib.pyplot as plt
 
 def main():
-    #n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000]
-    n_values = [100]
+    n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000]
     # We track both runtime and the computed cost to evaluate accuracy
-    results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': [], 'SubQuad': []}
-    accuracy = {'Sinkhorn': [], 'SubQuad': []}
+    #results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': [], 'SubQuad': []}
+    #accuracy = {'Sinkhorn': [], 'SubQuad': []}
+
+    results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': []}
+    accuracy = {'Sinkhorn': []}
 
     print("Benchmarking Runtime and Accuracy...")
     for n in n_values:
         print(f"Testing N = {n}...")
         C = CreateGraphs.generate_dense_ot_data(n)
         
-        # 1. Exact Baseline (Ground Truth)
-        # We'll use POT_EMD as the reference for accuracy
         t0 = time.perf_counter()
         true_cost = BaseLine.solve_pot_emd(C) 
         results['POT_EMD'].append(time.perf_counter() - t0)
@@ -26,23 +26,21 @@ def main():
         BaseLine.solve_Hungarian(C)
         results['Hungarian'].append(time.perf_counter() - t0)
         
-        # 2. Sinkhorn Approximation
         t0 = time.perf_counter()
-        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.01)
+        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.05)
         results['Sinkhorn'].append(time.perf_counter() - t0)
         # Relative Error: |approx - true| / true
         accuracy['Sinkhorn'].append(abs(sink_cost - true_cost) / true_cost)
 
-        # 3. Sub-Quadratic Approximation (Your Implementation)
-        t0 = time.perf_counter()
-        sub_quad_cost = SubQuad.solve_Sub_Quad(C, 10)
-        results['SubQuad'].append(time.perf_counter() - t0)
-        accuracy['SubQuad'].append(abs(sub_quad_cost - true_cost) / true_cost)
+        # t0 = time.perf_counter()
+        # sub_quad_cost = SubQuad.solve_Sub_Quad(C, 10)
+        # results['SubQuad'].append(time.perf_counter() - t0)
+        # accuracy['SubQuad'].append(abs(sub_quad_cost - true_cost) / true_cost)
 
-    # --- Visualization 1: Runtime Complexity (Log-Log) ---
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
-    colors = {'Hungarian': 'royalblue', 'POT_EMD': 'forestgreen', 'Sinkhorn': 'crimson', 'SubQuad': 'orange'}
+    #colors = {'Hungarian': 'royalblue', 'POT_EMD': 'forestgreen', 'Sinkhorn': 'crimson', 'SubQuad': 'orange'}
+    colors = {'Hungarian': 'royalblue', 'POT_EMD': 'forestgreen', 'Sinkhorn': 'crimson'}
     
     for method, times in results.items():
         log_n = np.log(n_values)
@@ -61,24 +59,22 @@ def main():
     plt.legend()
     plt.grid(True, which="both", alpha=0.2)
 
-    # --- Visualization 2: Accuracy Analysis ---
     plt.subplot(1, 2, 2)
     plt.plot(n_values, accuracy['Sinkhorn'], marker='o', color='crimson', label='Sinkhorn Error')
-    plt.plot(n_values, accuracy['SubQuad'], marker='s', color='orange', label='SubQuad Error')
+    #plt.plot(n_values, accuracy['SubQuad'], marker='s', color='orange', label='SubQuad Error')
     
     plt.title('Relative Error Analysis')
     plt.xlabel('Number of Nodes (N)')
     plt.ylabel('Relative Error (|Approx - True| / True)')
-    plt.axhline(y=0.05, color='gray', linestyle='--', label='Target $\epsilon$ (5%)')
+    plt.axhline(y=0.05, color='gray', linestyle='--', label='Target Approx (5%)')
     plt.legend()
     plt.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.show()
 
-    # Print summary of the final N
     print(f"\nFinal Results for N={n_values[-1]}:")
-    print(f"SubQuad Error: {accuracy['SubQuad'][-1]:.4f}")
+    #print(f"SubQuad Error: {accuracy['SubQuad'][-1]:.4f}")
     print(f"Sinkhorn Error: {accuracy['Sinkhorn'][-1]:.4f}")
 
 main()

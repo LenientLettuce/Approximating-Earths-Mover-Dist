@@ -19,5 +19,10 @@ def solve_pot_sinkhorn(cost_matrix, reg=0.1):
     """Solves the Entropic Regularized OT (Sinkhorn) using POT."""
     n = cost_matrix.shape[0]
     a, b = np.ones(n) / n, np.ones(n) / n
-    sinkhorn_cost = ot.sinkhorn2(a, b, cost_matrix, reg)
-    return sinkhorn_cost
+    M = cost_matrix / cost_matrix.max()
+    sinkhorn_cost = ot.sinkhorn2(a, b, M, reg, 
+                                 numItermax=10000, 
+                                 stopThr=1e-9, 
+                                 method='sinkhorn')
+    
+    return sinkhorn_cost * cost_matrix.max()
