@@ -37,8 +37,8 @@ def generate_bipartite_ot_data(n, edge_prob=0.7):
 def generate_dense_ot_data(n):
     """Generates a fully connected cost matrix (no infinite penalties)."""
     # Create two sets of points in 2D space
-    source_pts = np.random.rand(n, 2)
-    target_pts = np.random.rand(n, 2)
+    source_pts = np.random.rand(n, 2)* 100
+    target_pts = np.random.rand(n, 2)* 100
     
     # Calculate all-to-all Euclidean distances
     from scipy.spatial.distance import cdist

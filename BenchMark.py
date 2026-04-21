@@ -5,8 +5,8 @@ import time
 import matplotlib.pyplot as plt
 
 def main():
-    n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000]
-    #n_values = [100, 300, 500, 1000, 1500, 2000, 2500]
+    #n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000]
+    n_values = [100, 1000]
     # We track both runtime and the computed cost to evaluate accuracy
     results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': [], 'SubQuad': []}
     accuracy = {'Sinkhorn': [], 'SubQuad': []}
@@ -31,9 +31,10 @@ def main():
         accuracy['Sinkhorn'].append(abs((sink_cost) - true_cost) / true_cost)
 
         t0 = time.perf_counter()
-        sub_quad_cost = SubQuad.solve_Sub_Quad(C, 20)
+        sub_quad_cost = SubQuad.solve_Sub_Quad(C, 50)
+        estimated_unit_cost = sub_quad_cost / n
         results['SubQuad'].append(time.perf_counter() - t0)
-        accuracy['SubQuad'].append(abs((sub_quad_cost) - true_cost) / true_cost)
+        accuracy['SubQuad'].append(abs(estimated_unit_cost - true_cost) / true_cost)
 
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
