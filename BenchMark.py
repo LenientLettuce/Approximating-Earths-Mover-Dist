@@ -6,12 +6,10 @@ import matplotlib.pyplot as plt
 
 def main():
     n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000]
+    #n_values = [100, 300, 500, 1000, 1500, 2000, 2500]
     # We track both runtime and the computed cost to evaluate accuracy
-    #results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': [], 'SubQuad': []}
-    #accuracy = {'Sinkhorn': [], 'SubQuad': []}
-
-    results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': []}
-    accuracy = {'Sinkhorn': []}
+    results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': [], 'SubQuad': []}
+    accuracy = {'Sinkhorn': [], 'SubQuad': []}
 
     print("Benchmarking Runtime and Accuracy...")
     for n in n_values:
@@ -27,21 +25,20 @@ def main():
         results['Hungarian'].append(time.perf_counter() - t0)
         
         t0 = time.perf_counter()
-        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.05)
+        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.01)
         results['Sinkhorn'].append(time.perf_counter() - t0)
         # Relative Error: |approx - true| / true
-        accuracy['Sinkhorn'].append(abs(sink_cost - true_cost) / true_cost)
+        accuracy['Sinkhorn'].append(abs((sink_cost) - true_cost) / true_cost)
 
-        # t0 = time.perf_counter()
-        # sub_quad_cost = SubQuad.solve_Sub_Quad(C, 10)
-        # results['SubQuad'].append(time.perf_counter() - t0)
-        # accuracy['SubQuad'].append(abs(sub_quad_cost - true_cost) / true_cost)
+        t0 = time.perf_counter()
+        sub_quad_cost = SubQuad.solve_Sub_Quad(C, 20)
+        results['SubQuad'].append(time.perf_counter() - t0)
+        accuracy['SubQuad'].append(abs((sub_quad_cost) - true_cost) / true_cost)
 
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
-    #colors = {'Hungarian': 'royalblue', 'POT_EMD': 'forestgreen', 'Sinkhorn': 'crimson', 'SubQuad': 'orange'}
-    colors = {'Hungarian': 'royalblue', 'POT_EMD': 'forestgreen', 'Sinkhorn': 'crimson'}
-    
+    colors = {'Hungarian': 'royalblue', 'POT_EMD': 'forestgreen', 'Sinkhorn': 'crimson', 'SubQuad': 'orange'}
+
     for method, times in results.items():
         log_n = np.log(n_values)
         log_t = np.log(times)
@@ -61,7 +58,7 @@ def main():
 
     plt.subplot(1, 2, 2)
     plt.plot(n_values, accuracy['Sinkhorn'], marker='o', color='crimson', label='Sinkhorn Error')
-    #plt.plot(n_values, accuracy['SubQuad'], marker='s', color='orange', label='SubQuad Error')
+    plt.plot(n_values, accuracy['SubQuad'], marker='s', color='orange', label='SubQuad Error')
     
     plt.title('Relative Error Analysis')
     plt.xlabel('Number of Nodes (N)')
@@ -74,7 +71,7 @@ def main():
     plt.show()
 
     print(f"\nFinal Results for N={n_values[-1]}:")
-    #print(f"SubQuad Error: {accuracy['SubQuad'][-1]:.4f}")
+    print(f"SubQuad Error: {accuracy['SubQuad'][-1]:.4f}")
     print(f"Sinkhorn Error: {accuracy['Sinkhorn'][-1]:.4f}")
 
 main()
