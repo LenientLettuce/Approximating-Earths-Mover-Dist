@@ -5,100 +5,88 @@ import ot
 def solve_Sub_Quad(cost_matrix, iterations=5):
     """
     Approximates EMD using a Primal-Dual loop with explicit data structures.
-    Enhanced with verbose logging for debugging.
     """
     n = cost_matrix.shape[0]
     u = np.zeros(n)
     v = np.zeros(n) 
     matching = {}
 
-    print(f"--- Starting Sub-Quad Approximation (n={n}) ---")
-    
+    #print(f"--- Starting Sub-Quad Approximation (n={n}) ---")
+    #print(f"Initial Cost Matrix:\n{cost_matrix}\n")
+
     for step in range(iterations):
-        print(f"\n>>> ITERATION {step + 1} <<<")
+        #print(f"=== Iteration {step + 1} ===")
         
-        # 1. Update Slack and Graph
+        # 1. Calculate Slack and Eligibility
         slack_matrix = cost_matrix - u[:, np.newaxis] - v[np.newaxis, :]
-        eligible_indices = np.where(np.isclose(slack_matrix, 0, atol=1e-8))
+        eligible_indices = np.where(np.isclose(slack_matrix, 0, atol=1e-5))
         
-        num_edges = len(eligible_indices[0])
-        print(f"[Step 1] Slack update: {num_edges} edges are now 'eligible' (slack ~ 0)")
-
-        eligibility_graph = nx.DiGraph() # Use Directed!
-        eligibility_graph.add_nodes_from([f"r{i}" for i in range(n)] + [f"c{i}" for i in range(n)])
+        eligibility_graph = nx.Graph()
         for i, j in zip(eligible_indices[0], eligible_indices[1]):
-            if matching.get(f"r{i}") == f"c{j}":
-                # If already matched, we can only go BACKWARDS (C to R)
-                eligibility_graph.add_edge(f"c{j}", f"r{i}")
-            else:
-                # If not matched, we go FORWARDS (R to C)
-                eligibility_graph.add_edge(f"r{i}", f"c{j}")
+            eligibility_graph.add_edge(f"r{i}", f"c{j}")
 
-        # 2. Find ALL possible augmentations
+        #print(f"Eligible Edges: {list(eligibility_graph.edges())}")
+
+        # 2. Augmenting Paths
         unmatched_rows = [f"r{i}" for i in range(n) if f"r{i}" not in matching]
-        # Track who owns which column to make flipping easier
-        rev_matching = {v: k for k, v in matching.items()} 
-        print(f"[Step 2] Attempting augmentations. Unmatched rows: {len(unmatched_rows)}")
+        matched_cols = set(matching.values())
         
-        matches_found_this_iter = 0
-        for r_start in unmatched_rows:
-            if r_start in matching: continue
+        found_augmentation = False
+        for r_node in unmatched_rows:
             try:
-                paths = nx.single_source_shortest_path(eligibility_graph, r_start)
+                # Find path in eligibility graph to an unmatched column
+                paths = nx.shortest_path(eligibility_graph, source=r_node)
+                #print(f"Avaialble paths are {paths}")
                 for target, path in paths.items():
-                    # Target must be a column AND must be currently UNMATCHED
-                    if target.startswith("c") and target not in rev_matching:
-                        # AUGMENT: This path flips the matching
-                        for k in range(0, len(path)-1, 2):
-                            r_node = path[k]
+                    # If the destination is a column AND it's not currently matched
+                    if target.startswith("c") and target not in matched_cols:
+                        #print(f"  [+] Found Augmenting Path: {path}")
+                        
+                        # Update matching using this path
+                        # Standard augmenting path: flip matched/unmatched edges
+                        for k in range(0, len(path) - 1, 2):
+                            r_idx = int(path[k][1:])
                             c_node = path[k+1]
-                            # If this column was matched elsewhere, remove that old match
-                            if c_node in rev_matching:
-                                old_r = rev_matching[c_node]
-                                if old_r in matching: del matching[old_r]
-                            
-                            matching[r_node] = c_node
-                            rev_matching[c_node] = r_node
-                            
-                        matches_found_this_iter += 1
-                        break 
-            except nx.NodeNotFound: # Catching the error you just had
+                            matching[f"r{r_idx}"] = c_node
+                            matched_cols.add(c_node)
+                        
+                        found_augmentation = True
+                        break # Move to the next unmatched row
+                if target.startswith("c") and target not in matched_cols:
+                    # Update matching (Simplified augmentation)
+                    for k in range(0, len(path) - 1, 2):
+                        r_idx = int(path[k][1:])
+                        c_node = path[k+1]
+                        matching[f"r{r_idx}"] = c_node
+                        matched_cols.add(c_node)
+                    found_augmentation = True
+                    #print(f"  [+] Augmented matching via path: {path}")
+            except (nx.NetworkXNoPath, nx.NodeNotFound):
                 continue
-        
-        print(f"        Matches added this iteration: {matches_found_this_iter}")
-        print(f"        Total current matching size: {len(matching)}/{n}")
 
-        # 3. Reachable set logic
-        still_unmatched_rows = [f"r{i}" for i in range(n) if f"r{i}" not in matching]
-        if not still_unmatched_rows:
-            print("[Step 3] No unmatched rows left. Breaking.")
-            break
-            
+        # 3. Identify Reachable Nodes for Dual Update
         reachable = set()
-        queue = list(still_unmatched_rows)
-        reachable.update(queue)
-        while queue:
-            curr = queue.pop(0)
-            for neighbor in eligibility_graph.neighbors(curr):
-                if neighbor not in reachable:
-                    reachable.add(neighbor)
-                    queue.append(neighbor)
-        
-        r_nodes = [node for node in reachable if node.startswith("r")]
-        c_nodes = [node for node in reachable if node.startswith("c")]
-        print(f"[Step 3] Reachable from unmatched: {len(r_nodes)} rows, {len(c_nodes)} columns")
+        unmatched_now = [f"r{i}" for i in range(n) if f"r{i}" not in matching]
+        for r_node in unmatched_now:
+            if eligibility_graph.has_node(r_node):
+                reachable.update(nx.descendants(eligibility_graph, r_node))
+                reachable.add(r_node)
 
-        # 4. Calculate Delta
-        reachable_r = [int(node[1:]) for node in r_nodes]
+        for r_node in unmatched_now:
+            reachable.add(r_node)
+            if eligibility_graph.has_node(r_node):
+                reachable.update(nx.descendants(eligibility_graph, r_node))
+
+        # 4. Calculate Delta (Minimum Slack to bring new edge into eligibility)
+        reachable_r = [int(node[1:]) for node in reachable if node.startswith("r")]
         unreachable_c = [j for j in range(n) if f"c{j}" not in reachable]
         
-        print(f"[Step 4] Checking slacks between {len(reachable_r)} reachable rows and {len(unreachable_c)} unreachable cols")
-
+        current_delta = 0
         if reachable_r and unreachable_c:
             relevant_slacks = slack_matrix[np.ix_(reachable_r, unreachable_c)]
             if relevant_slacks.size > 0:
                 current_delta = np.min(relevant_slacks)
-                print(f"        Calculated Delta: {current_delta:.6f}")
+                #print(f"  [*] Calculated Delta: {current_delta:.4f}")
 
                 # 5. Dual Potential Update 
                 for i in range(n):
@@ -106,25 +94,18 @@ def solve_Sub_Quad(cost_matrix, iterations=5):
                         u[i] += current_delta
                     if f"c{i}" in reachable:
                         v[i] -= current_delta
-            else:
-                print("        WARNING: Relevant slacks matrix is empty.")
+                #print(f"  [*] Updated Potentials: u={u}, v={v}")
         else:
-            print("        INFO: All columns reachable or matching full. No Delta update possible.")
+            print("  [*] No Delta update possible (all reachable or matching full).")
 
+        #print(f"End of Iteration {step+1}: Matching Size = {len(matching)}\n")
         if len(matching) == n:
-            print("!!! Perfect matching achieved early !!!")
+            #print("Perfect matching found early!")
             break
 
     total_cost = sum(cost_matrix[int(r[1:]), int(c[1:])] for r, c in matching.items())
-    print(f"\n--- Final Status ---")
-    print(f"Matched: {len(matching)}/{n}")
-    print(f"Total Cost: {total_cost:.4f}")
-    
-    if len(matching) < n:
-        print(f"DANGER: Algorithm ended with {n - len(matching)} unmatched nodes.")
-        
+    #print(f"Final Matching: {matching}")
     return total_cost
-
 
 def solve_pot_emd(cost_matrix):
     """Solves the Exact Earth Mover's Distance using POT (LP solver)."""
@@ -135,11 +116,11 @@ def solve_pot_emd(cost_matrix):
 
 if __name__ == "__main__":
     # Parameters
-    N = 150  # Size of the matrix
-    MAX_VAL = 1530
+    N = 100  # Size of the matrix
+    MAX_VAL = 10
     
     # Generate random integer cost matrix for easier manual verification
-    np.random.seed(34) # For reproducible results
+    np.random.seed(42) # For reproducible results
     random_costs = np.random.randint(1, MAX_VAL, size=(N, N)).astype(float)
     
     # Run the solver
