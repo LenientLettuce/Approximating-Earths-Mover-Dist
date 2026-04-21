@@ -25,7 +25,7 @@ def main():
         results['Hungarian'].append(time.perf_counter() - t0)
         
         t0 = time.perf_counter()
-        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.01)
+        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.001)
         results['Sinkhorn'].append(time.perf_counter() - t0)
         # Relative Error: |approx - true| / true
         accuracy['Sinkhorn'].append(abs((sink_cost) - true_cost) / true_cost)
@@ -33,7 +33,7 @@ def main():
         t0 = time.perf_counter()
         sub_quad_cost = SubQuad.solve_Sub_Quad(C, 20)
         results['SubQuad'].append(time.perf_counter() - t0)
-        accuracy['SubQuad'].append(abs((sub_quad_cost) - true_cost) / true_cost)
+        accuracy['SubQuad'].append(abs((sub_quad_cost/n) - true_cost) / true_cost)
 
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)

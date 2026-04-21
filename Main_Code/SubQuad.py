@@ -5,17 +5,24 @@ import ot
 def solve_Sub_Quad(cost_matrix, iterations=5):
     """
     Approximates EMD using a Primal-Dual loop with explicit data structures.
+
+     Args:
+        cost_matrix (np.ndarray): n x n matrix of pairwise distances.
+        iterations (int): Number of primal-dual steps (O(1) in paper).
+        
+    Returns:
+        float: Estimated EMD value.
     """
+    
     n = cost_matrix.shape[0]
     u = np.zeros(n)
     v = np.zeros(n) 
     matching = {}
 
-    #print(f"--- Starting Sub-Quad Approximation (n={n}) ---")
-    #print(f"Initial Cost Matrix:\n{cost_matrix}\n")
-
+    print(f"--- DEBUG START (n={n}) ---")
+    
     for step in range(iterations):
-        #print(f"=== Iteration {step + 1} ===")
+        print(f"\n[ITERATION {step + 1}]")
         
         # 1. Calculate Slack and Eligibility
         slack_matrix = cost_matrix - u[:, np.newaxis] - v[np.newaxis, :]
@@ -25,68 +32,66 @@ def solve_Sub_Quad(cost_matrix, iterations=5):
         for i, j in zip(eligible_indices[0], eligible_indices[1]):
             eligibility_graph.add_edge(f"r{i}", f"c{j}")
 
-        #print(f"Eligible Edges: {list(eligibility_graph.edges())}")
+        print(f" -> Eligible Edges: {len(eligible_indices[0])}")
 
         # 2. Augmenting Paths
         unmatched_rows = [f"r{i}" for i in range(n) if f"r{i}" not in matching]
         matched_cols = set(matching.values())
         
-        found_augmentation = False
+        matches_this_round = 0
         for r_node in unmatched_rows:
+            if r_node in matching: continue # Safety check
             try:
-                # Find path in eligibility graph to an unmatched column
                 paths = nx.shortest_path(eligibility_graph, source=r_node)
-                #print(f"Avaialble paths are {paths}")
                 for target, path in paths.items():
-                    # If the destination is a column AND it's not currently matched
                     if target.startswith("c") and target not in matched_cols:
-                        #print(f"  [+] Found Augmenting Path: {path}")
-                        
-                        # Update matching using this path
-                        # Standard augmenting path: flip matched/unmatched edges
+                        # Update matching 
                         for k in range(0, len(path) - 1, 2):
-                            r_idx = int(path[k][1:])
+                            r_key = path[k]
                             c_node = path[k+1]
-                            matching[f"r{r_idx}"] = c_node
+                            matching[r_key] = c_node
                             matched_cols.add(c_node)
                         
-                        found_augmentation = True
-                        break # Move to the next unmatched row
-                if target.startswith("c") and target not in matched_cols:
-                    # Update matching (Simplified augmentation)
-                    for k in range(0, len(path) - 1, 2):
-                        r_idx = int(path[k][1:])
-                        c_node = path[k+1]
-                        matching[f"r{r_idx}"] = c_node
-                        matched_cols.add(c_node)
-                    found_augmentation = True
-                    #print(f"  [+] Augmented matching via path: {path}")
+                        matches_this_round += 1
+                        break 
             except (nx.NetworkXNoPath, nx.NodeNotFound):
                 continue
+        
+        print(f" -> Matches found this round: {matches_this_round}")
+        print(f" -> Total matching size: {len(matching)}/{n}")
 
         # 3. Identify Reachable Nodes for Dual Update
         reachable = set()
         unmatched_now = [f"r{i}" for i in range(n) if f"r{i}" not in matching]
-        for r_node in unmatched_now:
-            if eligibility_graph.has_node(r_node):
-                reachable.update(nx.descendants(eligibility_graph, r_node))
-                reachable.add(r_node)
+        
+        if not unmatched_now:
+            print(" -> Perfect matching achieved. Breaking.")
+            break
 
         for r_node in unmatched_now:
             reachable.add(r_node)
             if eligibility_graph.has_node(r_node):
-                reachable.update(nx.descendants(eligibility_graph, r_node))
+                # Descendants in an undirected graph are just the connected component
+                reachable.update(nx.node_connected_component(eligibility_graph, r_node))
 
-        # 4. Calculate Delta (Minimum Slack to bring new edge into eligibility)
-        reachable_r = [int(node[1:]) for node in reachable if node.startswith("r")]
-        unreachable_c = [j for j in range(n) if f"c{j}" not in reachable]
+        reachable_r = [node for node in reachable if node.startswith("r")]
+        reachable_c = [node for node in reachable if node.startswith("c")]
+        print(f" -> Reachable Set: {len(reachable_r)} rows, {len(reachable_c)} cols")
+
+        # 4. Calculate Delta
+        r_indices = [int(node[1:]) for node in reachable_r]
+        # Unreachable columns are those NOT in the reachable set
+        c_indices_unreachable = [j for j in range(n) if f"c{j}" not in reachable]
         
-        current_delta = 0
-        if reachable_r and unreachable_c:
-            relevant_slacks = slack_matrix[np.ix_(reachable_r, unreachable_c)]
+        if r_indices and c_indices_unreachable:
+            relevant_slacks = slack_matrix[np.ix_(r_indices, c_indices_unreachable)]
+            
             if relevant_slacks.size > 0:
                 current_delta = np.min(relevant_slacks)
-                #print(f"  [*] Calculated Delta: {current_delta:.4f}")
+                print(f" -> Delta Calculated: {current_delta:.6f}")
+                
+                if current_delta <= 1e-9:
+                    print(" !!! WARNING: Delta is near zero. Potential infinite loop or precision issue.")
 
                 # 5. Dual Potential Update 
                 for i in range(n):
@@ -94,17 +99,15 @@ def solve_Sub_Quad(cost_matrix, iterations=5):
                         u[i] += current_delta
                     if f"c{i}" in reachable:
                         v[i] -= current_delta
-                #print(f"  [*] Updated Potentials: u={u}, v={v}")
+            else:
+                print(" -> WARNING: Relevant slacks matrix empty despite candidates.")
         else:
-            print("  [*] No Delta update possible (all reachable or matching full).")
-
-        #print(f"End of Iteration {step+1}: Matching Size = {len(matching)}\n")
-        if len(matching) == n:
-            #print("Perfect matching found early!")
-            break
+            print(" -> INFO: No dual update possible (No path to unreachable columns).")
 
     total_cost = sum(cost_matrix[int(r[1:]), int(c[1:])] for r, c in matching.items())
-    #print(f"Final Matching: {matching}")
+    print(f"\n--- FINAL STATUS ---")
+    print(f"Final Matching Size: {len(matching)}/{n}")
+    print(f"Total Cost: {total_cost:.4f}")
     return total_cost
 
 def solve_pot_emd(cost_matrix):
@@ -117,7 +120,7 @@ def solve_pot_emd(cost_matrix):
 if __name__ == "__main__":
     # Parameters
     N = 100  # Size of the matrix
-    MAX_VAL = 10
+    MAX_VAL = 150
     
     # Generate random integer cost matrix for easier manual verification
     np.random.seed(42) # For reproducible results
