@@ -5,7 +5,7 @@ import time
 import matplotlib.pyplot as plt
 
 def main():
-    n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000]
+    n_values = [100, 300, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 7500, 10_000, 15_000]
     #n_values = [100, 300, 500, 1000, 1500, 2000, 2500]
     # We track both runtime and the computed cost to evaluate accuracy
     results = {'Hungarian': [], 'POT_EMD': [], 'Sinkhorn': [], 'SubQuad': []}
@@ -25,13 +25,13 @@ def main():
         results['Hungarian'].append(time.perf_counter() - t0)
         
         t0 = time.perf_counter()
-        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.0005)
+        sink_cost = BaseLine.solve_pot_sinkhorn(C, reg=0.0003)
         results['Sinkhorn'].append(time.perf_counter() - t0)
         # Relative Error: |approx - true| / true
         accuracy['Sinkhorn'].append(abs((sink_cost) - true_cost) / true_cost)
 
         t0 = time.perf_counter()
-        sub_quad_cost = SubQuad.approximate_emd_optimized(C, 30, 0.001)
+        sub_quad_cost = SubQuad.solve_Sub_Quad(C, 30, 0.05)
         print(sub_quad_cost[0]/n)
         print(true_cost)
         results['SubQuad'].append(time.perf_counter() - t0)

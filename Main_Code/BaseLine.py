@@ -12,7 +12,7 @@ def solve_pot_emd(cost_matrix):
     """Solves the Exact Earth Mover's Distance using POT (LP solver)."""
     n = cost_matrix.shape[0]
     a, b = np.ones(n) / n, np.ones(n) / n
-    emd_cost = ot.emd2(a, b, cost_matrix)
+    emd_cost = ot.emd2(a, b, cost_matrix,numItermax=100_000_000)
     return emd_cost
 
 def solve_pot_sinkhorn(cost_matrix, reg=0.1):
@@ -22,7 +22,7 @@ def solve_pot_sinkhorn(cost_matrix, reg=0.1):
     M = cost_matrix / cost_matrix.max()
     sinkhorn_cost = ot.sinkhorn2(a, b, M, reg, 
                                  numItermax=10000, 
-                                 stopThr=1e-9, 
+                                 stopThr=1e-5, 
                                  method='sinkhorn')
     
     return sinkhorn_cost * cost_matrix.max()
