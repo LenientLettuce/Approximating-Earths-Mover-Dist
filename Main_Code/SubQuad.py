@@ -28,7 +28,6 @@ def solve_Sub_Quad(C, TotalIterations=5000, gamma=0.05, cost_range = 10_000):
     for iteration in range(TotalIterations):
         slack = C - phi_u[:, np.newaxis] - phi_v[np.newaxis, :]
         eligible_edges = slack <= 1e-8
-        
         #Node Disjoint Augmenting Paths
         dist.fill(np.inf)
         queue.clear()
@@ -42,7 +41,6 @@ def solve_Sub_Quad(C, TotalIterations=5000, gamma=0.05, cost_range = 10_000):
             queue.append(u)
             
         dist_dummy = np.inf
-        
         # A. BFS Layering
         while queue:
             u = queue.popleft()

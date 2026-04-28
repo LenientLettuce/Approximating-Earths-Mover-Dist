@@ -41,3 +41,11 @@ We evaluate the performance of these algorithms across several dimensions:
 * **Outlier Analysis:** Testing how the "outlier fraction" ($\gamma$) affects the tradeoff between speed and precision.
 
 ---
+
+
+**TO RUN**
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r reqs.txt
+
+Then run the benchmark.ipynb file.
